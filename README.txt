@@ -1,0 +1,1 @@
+Just a simple console application that can solve sudoku puzzles.
