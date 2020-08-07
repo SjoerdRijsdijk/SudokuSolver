@@ -58,10 +58,9 @@ namespace SudokuSolver {
 
                         var rowNumbers = SplitInput(rowNumbersInput);
 
-                        var (ValidInput, InvalidInput) = ProcessInput(rowNumbers);
+                        var (ValidInput, InvalidNumberInput, DuplicateInput) = ProcessInput(rowNumbers, false);
 
-                        if (InvalidInput.Any()) {
-                            Console.WriteLine($"{string.Join(", ", InvalidInput)} is/are not (a) valid row number(s).");
+                        if (ShowInvalidNumberInput(InvalidNumberInput) || ShowDuplicateInput(DuplicateInput)) {
                             continue;
                         }
 
@@ -106,27 +105,40 @@ namespace SudokuSolver {
             return input.Split(" ").Where(c => !string.IsNullOrWhiteSpace(c));
         }
 
-        private static bool IsValidNumberInput(string input, out int number) {
+        private static bool IsValidNumberInput(string input, out int number, bool zeroIsValid = true) {
             var isNumber = int.TryParse(input, out number);
-            return isNumber && number > 0 && number <= 9;
+            return isNumber && (zeroIsValid ? number >= 0 : number > 0) && number <= 9;
         }
 
-        private static (List<int> ValidInput, List<string> InvalidInput) ProcessInput(IEnumerable<string> input) {
+        private static (List<int> ValidInput, List<string> InvalidNumberInput, List<int> DuplicateInput) ProcessInput(IEnumerable<string> input, bool zeroIsValid = true) {
             var validInput = new List<int>();
-            var invalidInput = new List<string>();
+            var invalidNumberInput = new List<string>();
+            var duplicateInput = new List<int>();
+            var duplicateCheck = new HashSet<string>();
 
             foreach (var inputNumber in input) {
-                if (!IsValidNumberInput(inputNumber, out int parsedInputNumber)) {
-                    invalidInput.Add(inputNumber);
+                if (!IsValidNumberInput(inputNumber, out int parsedInputNumber, zeroIsValid)) {
+                    invalidNumberInput.Add(inputNumber);
                 }
                 else {
-                    validInput.Add(parsedInputNumber);
+                    if (parsedInputNumber == 0 || duplicateCheck.Add(inputNumber)) {
+                        validInput.Add(parsedInputNumber);
+                    }
+                    else {
+                        validInput.Remove(parsedInputNumber);
+                        duplicateInput.Add(parsedInputNumber);
+                    }
                 }
             }
 
-            return (validInput, invalidInput);
+            return (validInput, invalidNumberInput, duplicateInput);
         }
 
+        /// <summary>
+        /// Returns either a list of valid input or null when invalid.
+        /// </summary>
+        /// <param name="rowNumber">Number of the current row.</param>
+        /// <returns></returns>
         public static List<int> ProcessRow(int rowNumber) {
             Console.Write($"Row {rowNumber}: ");
             var rowInput = Console.ReadLine().Trim();
@@ -139,14 +151,11 @@ namespace SudokuSolver {
                 return null;
             }
 
-            var (ValidInput, InvalidInput) = ProcessInput(inputNumbers);
+            var (ValidInput, InvalidNumberInput, DuplicateInput) = ProcessInput(inputNumbers);
+            var hasInvalidNumberInput = ShowInvalidNumberInput(InvalidNumberInput);
+            var hasDuplicateInput = ShowDuplicateInput(DuplicateInput);
 
-            if (InvalidInput.Any()) {
-                Console.WriteLine($"{string.Join(", ", InvalidInput)} is/are not (a) valid number(s).");
-                return null;
-            }
-
-            return ValidInput;
+            return !hasInvalidNumberInput && !hasDuplicateInput ? ValidInput : null;
         }
 
         private static bool Solve(List<List<int>> grid, int x, int y) {
@@ -264,6 +273,25 @@ namespace SudokuSolver {
             }
 
             return isOkay.Value;
+        }
+
+        private static bool ShowInvalidNumberInput(IEnumerable<string> invalidNumberInput) {
+            var hasInvalidNumberInput = invalidNumberInput.Any();
+            if (hasInvalidNumberInput) {
+                Console.WriteLine($"{string.Join(", ", invalidNumberInput)} is/are not (a) valid number(s).");
+            }
+
+            return hasInvalidNumberInput;
+        }
+
+        private static bool ShowDuplicateInput(IEnumerable<int> duplicateInput) {
+            var hasDuplicateNumberInput = duplicateInput.Any();
+
+            if (hasDuplicateNumberInput) {
+                Console.WriteLine($"Too many of the following numbers: {string.Join(", ", duplicateInput)}.");
+            }
+
+            return hasDuplicateNumberInput;
         }
     }
 }
