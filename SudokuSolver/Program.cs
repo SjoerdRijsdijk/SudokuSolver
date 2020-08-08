@@ -10,12 +10,12 @@ namespace SudokuSolver {
 
         static void Main(string[] args) {
             while (true) {
-                Console.WriteLine("Use prefilled grid?");
+                Console.WriteLine("Use prefilled test grid?");
 
-                var rows = new List<List<int>>();
+                var grid = new List<List<int>>();
 
                 if (YesOrNo()) {
-                    rows = PrefilledGrid();
+                    grid = PrefilledGrid();
                 }
                 else {
                     Console.WriteLine("Enter the first row:");
@@ -31,7 +31,7 @@ namespace SudokuSolver {
                             continue;
                         }
 
-                        rows.Add(processedRow);
+                        grid.Add(processedRow);
 
                         if (currentRow == AmountOfRows) {
                             break;
@@ -42,8 +42,16 @@ namespace SudokuSolver {
                 }
 
                 WriteEmpyNewLine(1);
+
+                if (!ValidateGrid(grid)) {
+                    Console.WriteLine("The following grid isn't valid:");
+                    PrintGrid(grid);
+                    WriteEmpyNewLine(1);
+                    continue;
+                }
+
                 Console.WriteLine("Is the following grid okay?");
-                PrintGrid(rows);
+                PrintGrid(grid);
                 WriteEmpyNewLine(1);
 
                 if (!YesOrNo()) {
@@ -72,13 +80,20 @@ namespace SudokuSolver {
                                     continue;
                                 }
 
-                                rows[rowNumber-1] = processedRow;
+                                grid[rowNumber - 1] = processedRow;
                                 break;
                             }
                         }
 
+                        if (!ValidateGrid(grid)) {
+                            Console.WriteLine("The following grid isn't valid:");
+                            PrintGrid(grid);
+                            WriteEmpyNewLine(1);
+                            continue;
+                        }
+
                         Console.WriteLine("Is the following grid okay?");
-                        PrintGrid(rows);
+                        PrintGrid(grid);
                         WriteEmpyNewLine(1);
 
                         if (!YesOrNo()) {
@@ -90,14 +105,14 @@ namespace SudokuSolver {
                 }
 
                 WriteEmpyNewLine(2);
-                if (Solve(rows, 1, 1)) {
+                if (Solve(grid, 1, 1)) {
                     Console.WriteLine("Solved the sudoku");
                 }
                 else {
                     Console.WriteLine("Failed solving the sudoku");
                 }
 
-                PrintGrid(rows);
+                PrintGrid(grid);
             }
         }
 
@@ -161,8 +176,8 @@ namespace SudokuSolver {
         private static bool Solve(List<List<int>> grid, int x, int y) {
             var valid = false;
             var hasNumber = PositionContainsNumber(grid, x, y);
-            foreach (var item in _possibleValues) {
-                if (hasNumber || EnterNumber(grid, x, y, item)) {
+            foreach (var possibleValue in _possibleValues) {
+                if (hasNumber || EnterNumber(grid, x, y, possibleValue)) {
                     var nextX = x;
                     var nextY = y;
                     if (x < 9 && y <= 9) {
@@ -228,9 +243,24 @@ namespace SudokuSolver {
             return pos > 0 && pos <= 9;
         }
 
-        private static bool EnterNumber(List<List<int>> grid, int x, int y, int z) {
-            var pos = grid.ElementAt(y - 1)[x - 1];
-            if (grid.ElementAt(y - 1).Contains(z) || grid.Any(c => c.ElementAt(x - 1) == z)) {
+        /// <summary>
+        /// Checks if the entered number can be placed at the given position. Doesn't check if the position already has a number.
+        /// </summary>
+        /// <param name="grid"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        private static bool EnterNumber(List<List<int>> grid, int x, int y, int value) {
+            var indexY = y - 1;
+            var indexX = x - 1;
+            var originalValue = grid[y - 1][x - 1];
+
+            // Necessary for validating the grid
+            grid[indexY][indexX] = 0;
+
+            if (grid[indexY].Contains(value) || grid.Any(c => c[indexX] == value)) {
+                grid[indexY][indexX] = originalValue;
                 return false;
             }
 
@@ -238,14 +268,15 @@ namespace SudokuSolver {
             var farthestY = (int)Math.Ceiling((decimal)y / 3) * 3;
 
             for (int i = farthestY - 3; i < farthestY; i++) {
-                var subSet = grid.ElementAt(i).Skip(farthestX - 3).Take(3);
+                var subSet = grid[i].Skip(farthestX - 3).Take(3);
 
-                if (subSet.Contains(z)) {
+                if (subSet.Contains(value)) {
+                    grid[indexY][indexX] = originalValue;
                     return false;
                 }
             }
 
-            grid.ElementAt(y - 1)[x - 1] = z;
+            grid[indexY][indexX] = value;
 
             return true;
         }
@@ -292,6 +323,24 @@ namespace SudokuSolver {
             }
 
             return hasDuplicateNumberInput;
+        }
+
+        private static bool ValidateGrid(List<List<int>> grid) {
+            var validGrid = true;
+
+            for (int i = 1; i <= grid.Count; i++) {
+                for (int j = 1; j <= grid[i - 1].Count; j++) {
+                    var value = grid[i - 1][j - 1];
+                    if (value > 0) {
+                        validGrid = EnterNumber(grid, j, i, value);
+                        if (!validGrid) {
+                            return validGrid;
+                        }
+                    }
+                }
+            }
+
+            return validGrid;
         }
     }
 }
